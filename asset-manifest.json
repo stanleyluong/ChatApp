@@ -1,0 +1,20 @@
+{
+  "files": {
+    "main.css": "/ChatApp/static/css/main.89743f08.chunk.css",
+    "main.js": "/ChatApp/static/js/main.cd5dbf5c.chunk.js",
+    "main.js.map": "/ChatApp/static/js/main.cd5dbf5c.chunk.js.map",
+    "runtime-main.js": "/ChatApp/static/js/runtime-main.2601768e.js",
+    "runtime-main.js.map": "/ChatApp/static/js/runtime-main.2601768e.js.map",
+    "static/js/2.5d08e187.chunk.js": "/ChatApp/static/js/2.5d08e187.chunk.js",
+    "static/js/2.5d08e187.chunk.js.map": "/ChatApp/static/js/2.5d08e187.chunk.js.map",
+    "index.html": "/ChatApp/index.html",
+    "static/css/main.89743f08.chunk.css.map": "/ChatApp/static/css/main.89743f08.chunk.css.map",
+    "static/js/2.5d08e187.chunk.js.LICENSE.txt": "/ChatApp/static/js/2.5d08e187.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.2601768e.js",
+    "static/js/2.5d08e187.chunk.js",
+    "static/css/main.89743f08.chunk.css",
+    "static/js/main.cd5dbf5c.chunk.js"
+  ]
+}

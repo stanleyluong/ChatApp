@@ -23,6 +23,7 @@ const LoginForm = () => {
         <div className="wrapper">
             <div className="form">
                 <h1 className="title">Chat App</h1>
+                <p className="title">Log in as a guest with guest//password</p>
                 <form onSubmit={handleSubmit}>
                     <input 
                         type="text" 

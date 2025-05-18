@@ -1,6 +1,6 @@
 import { InfoCircleOutlined, LogoutOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Input, List, Modal, Typography } from 'antd';
-import { addDoc, collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { addDoc, collection, onSnapshot, orderBy, query, Timestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { db } from '../firebase';
 
@@ -10,7 +10,7 @@ interface Channel {
   id: string;
   name: string;
   description: string;
-  createdAt: any;
+  createdAt: Timestamp;
 }
 
 interface ChannelsProps {
@@ -18,10 +18,9 @@ interface ChannelsProps {
   selectedChannel: Channel | null;
   onSettings?: () => void;
   onSignOut?: () => void;
-  user?: any;
 }
 
-export function Channels({ onSelectChannel, selectedChannel, onSettings, onSignOut, user }: ChannelsProps) {
+export function Channels({ onSelectChannel, selectedChannel, onSettings, onSignOut }: ChannelsProps) {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
@@ -48,7 +47,7 @@ export function Channels({ onSelectChannel, selectedChannel, onSettings, onSignO
       await addDoc(collection(db, 'channels'), {
         name: newChannelName,
         description: newChannelDescription,
-        createdAt: new Date(),
+        createdAt: Timestamp.fromDate(new Date()),
       });
       setNewChannelName('');
       setNewChannelDescription('');

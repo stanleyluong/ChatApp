@@ -1,5 +1,6 @@
 import { InfoCircleOutlined, LogoutOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Input, List, Modal, Typography } from 'antd';
+import type { User } from 'firebase/auth';
 import { addDoc, collection, onSnapshot, orderBy, query, Timestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { db } from '../firebase';
@@ -18,6 +19,7 @@ interface ChannelsProps {
   selectedChannel: Channel | null;
   onSettings?: () => void;
   onSignOut?: () => void;
+  user?: User | null;
 }
 
 export function Channels({ onSelectChannel, selectedChannel, onSettings, onSignOut }: ChannelsProps) {

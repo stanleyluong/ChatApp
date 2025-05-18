@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import './App.css'
 import { Auth } from './components/Auth'
 import { Channels } from './components/Channels'
+import { GoogleOneTap } from './components/GoogleOneTap'
 import { SettingsModal } from './components/SettingsModal'
 import { auth, db } from './firebase'
 
@@ -156,130 +157,141 @@ function App() {
   }
 
   if (!user) {
-    return <Auth onSignIn={setUser} />
+    return <>
+      <GoogleOneTap isSignedIn={false} />
+      <Auth onSignIn={setUser} />
+    </>
   }
 
   return (
-    <Layout className="layout">
-      <Header className="header">
-        {isMobile && (
-          <Button
-            type="text"
-            icon={<MenuOutlined style={{ color: 'white', fontSize: 24 }} />}
-            onClick={() => setDrawerOpen(!drawerOpen)}
-            style={{ marginRight: 16 }}
-          />
-        )}
-        <Title level={3} style={{ color: 'white', margin: 0 }}>
-          ChatApp
-        </Title>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Button
-            type="text"
-            icon={<SettingOutlined style={{ color: 'white', fontSize: 22 }} />}
-            onClick={() => setSettingsOpen(true)}
-            style={{ color: 'white' }}
-            aria-label="Settings"
-          />
-          <span style={{ color: 'white' }}>{user.displayName}</span>
-          <Button 
-            type="text" 
-            icon={<LogoutOutlined />} 
-            onClick={handleSignOut}
-            style={{ color: 'white' }}
-          />
-        </div>
-      </Header>
-      <Layout>
-        {!isMobile && (
-          <Sider width={240} theme="dark">
-            <Channels 
-              onSelectChannel={handleChannelSelect}
-              selectedChannel={selectedChannel}
+    <>
+      <GoogleOneTap isSignedIn={true} />
+      <Layout className="layout">
+        <Header className="header">
+          {isMobile && (
+            <Button
+              type="text"
+              icon={<MenuOutlined style={{ color: 'white', fontSize: 24 }} />}
+              onClick={() => setDrawerOpen(!drawerOpen)}
+              style={{ marginRight: 16 }}
             />
-          </Sider>
-        )}
-        {isMobile && (
-          <Drawer
-            placement="left"
-            open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
-            styles={{ body: { padding: 0 } }}
-            width={240}
-            closable={false}
-            maskClosable={true}
-            style={{ zIndex: 2000 }}
-          >
-            <Channels 
-              onSelectChannel={handleChannelSelect}
-              selectedChannel={selectedChannel}
-            />
-          </Drawer>
-        )}
-        <Content className="content">
-          {selectedChannel ? (
-            <div className="chat-container">
-              <div className="channel-header">
-                <Title level={4}>#{selectedChannel.name}</Title>
-                <p>{selectedChannel.description}</p>
-              </div>
-              <List
-                className="message-list"
-                dataSource={messages}
-                renderItem={(message) => {
-                  const isCurrentUser = message.senderId === user.uid
-                  const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined
-                  const bgColor = isCurrentUser ? userSettings.messageBg : '#007a5a'
-                  const textColor = isCurrentUser ? userSettings.messageText : '#fff'
-                  return (
-                    <List.Item className={`message ${isCurrentUser ? 'message-sent' : 'message-received'}`}
-                      style={{ background: bgColor, color: textColor }}>
-                      <List.Item.Meta
-                        avatar={
-                          <Avatar
-                            src={avatarUrl || (isCurrentUser ? user.photoURL : undefined)}
-                            style={{ marginLeft: 8, marginRight: 12 }}
-                          >
-                            {message.sender[0]}
-                          </Avatar>
-                        }
-                        title={<span style={{ color: textColor, fontWeight: 600 }}>{message.sender}</span>}
-                        description={<span style={{ color: textColor }}>{message.text}</span>}
-                      />
-                    </List.Item>
-                  )
-                }}
+          )}
+          <Title level={3} style={{ color: 'white', margin: 0 }}>
+            ChatApp
+          </Title>
+          {!isMobile && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Button
+                type="text"
+                icon={<SettingOutlined style={{ color: 'white', fontSize: 22 }} />}
+                onClick={() => setSettingsOpen(true)}
+                style={{ color: 'white' }}
+                aria-label="Settings"
               />
-              <div className="message-input">
-                <TextArea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={`Message #${selectedChannel.name}`}
-                  autoSize={{ minRows: 1, maxRows: 4 }}
-                />
-                <Button
-                  type="primary"
-                  icon={<SendOutlined />}
-                  onClick={handleSendMessage}
-                  className="send-button"
-                >
-                  Send
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              height: '100%',
-              color: '#666'
-            }}>
-              Select a channel to start chatting
+              <span style={{ color: 'white' }}>{user.displayName}</span>
+              <Button 
+                type="text" 
+                icon={<LogoutOutlined />} 
+                onClick={handleSignOut}
+                style={{ color: 'white' }}
+              />
             </div>
           )}
-        </Content>
+        </Header>
+        <Layout>
+          {!isMobile && (
+            <Sider width={240} theme="dark">
+              <Channels 
+                onSelectChannel={handleChannelSelect}
+                selectedChannel={selectedChannel}
+              />
+            </Sider>
+          )}
+          {isMobile && (
+            <Drawer
+              placement="left"
+              open={drawerOpen}
+              onClose={() => setDrawerOpen(false)}
+              styles={{ body: { padding: 0 } }}
+              width={240}
+              closable={false}
+              maskClosable={true}
+              style={{ zIndex: 2000 }}
+            >
+              <Channels 
+                onSelectChannel={handleChannelSelect}
+                selectedChannel={selectedChannel}
+                onSettings={() => setSettingsOpen(true)}
+                onSignOut={handleSignOut}
+                user={user}
+              />
+            </Drawer>
+          )}
+          <Content className="content">
+            {selectedChannel ? (
+              <div className="chat-container">
+                <div className="channel-header">
+                  <Title level={4}>#{selectedChannel.name}</Title>
+                  <p>{selectedChannel.description}</p>
+                </div>
+                <List
+                  className="message-list"
+                  dataSource={messages}
+                  renderItem={(message) => {
+                    const isCurrentUser = message.senderId === user.uid
+                    const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined
+                    const bgColor = isCurrentUser ? userSettings.messageBg : '#007a5a'
+                    const textColor = isCurrentUser ? userSettings.messageText : '#fff'
+                    return (
+                      <List.Item className={`message ${isCurrentUser ? 'message-sent' : 'message-received'}`}
+                        style={{ background: bgColor, color: textColor }}>
+                        <List.Item.Meta
+                          avatar={
+                            <Avatar
+                              src={avatarUrl || (isCurrentUser ? user.photoURL : undefined)}
+                              style={{ marginLeft: 8, marginRight: 12 }}
+                            >
+                              {message.sender[0]}
+                            </Avatar>
+                          }
+                          title={<span style={{ color: textColor, fontWeight: 600 }}>{message.sender}</span>}
+                          description={<span style={{ color: textColor }}>{message.text}</span>}
+                        />
+                      </List.Item>
+                    )
+                  }}
+                />
+                <div className="message-input">
+                  <TextArea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={`Message #${selectedChannel.name}`}
+                    autoSize={{ minRows: 1, maxRows: 4 }}
+                  />
+                  <Button
+                    type="primary"
+                    icon={<SendOutlined />}
+                    onClick={handleSendMessage}
+                    className="send-button"
+                  >
+                    Send
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%',
+                color: '#666'
+              }}>
+                Select a channel to start chatting
+              </div>
+            )}
+          </Content>
+        </Layout>
       </Layout>
       <SettingsModal
         open={settingsOpen}
@@ -287,7 +299,7 @@ function App() {
         initialValues={userSettings}
         onSave={handleSaveSettings}
       />
-    </Layout>
+    </>
   )
 }
 

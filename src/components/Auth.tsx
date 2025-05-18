@@ -1,4 +1,4 @@
-import { GoogleOutlined, InfoCircleOutlined, SmileTwoTone } from '@ant-design/icons';
+import { GoogleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button, Modal } from 'antd';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useState } from 'react';
@@ -45,7 +45,12 @@ export function Auth({ onSignIn }: AuthProps) {
         justifyContent: 'center',
         padding: '0 1.5rem',
       }}>
-        <SmileTwoTone style={{ fontSize: 64, marginBottom: 24 }} twoToneColor="#1976D2" />
+        <span style={{ display: 'inline-block', marginBottom: 24 }}>
+          <svg viewBox="0 0 1024 1024" focusable="false" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+            <path d="M464 512a32 32 0 1064 0 32 32 0 10-64 0zm160 0a32 32 0 1064 0 32 32 0 10-64 0zm-320 0a32 32 0 1064 0 32 32 0 10-64 0z" fill="#1976D2"/>
+            <path d="M512 64C264.6 64 64 238.7 64 448c0 99.2 48.6 189.2 128.7 254.6-7.7 41.2-27.2 80.2-56.7 110.7-6.2 6.3-8.1 15.6-4.6 23.6 3.5 8 11.3 13.1 19.8 13.1 66.2 0 120.7-24.2 159.2-48.2C370.7 819.2 439.6 832 512 832c247.4 0 448-174.7 448-384S759.4 64 512 64zm0 704c-67.2 0-131.2-13.2-186.2-38.2-4.7-2.2-10.2-1.7-14.3 1.3-36.2 25.7-81.2 44.7-132.2 51.2 27.2-32.2 45.2-70.7 52.2-112.2.8-4.7-1-9.5-4.7-12.5C120.2 613.2 80 533.7 80 448c0-191.2 200.6-352 432-352s432 160.8 432 352-200.6 352-432 352z" fill="#1976D2"/>
+          </svg>
+        </span>
         <h1 style={{ marginBottom: 12, fontWeight: 800, fontSize: 36, color: '#1976D2', letterSpacing: 1, textAlign: 'center' }}>
           Welcome to <span style={{ color: '#6C63FF' }}>ChatApp!</span>
         </h1>

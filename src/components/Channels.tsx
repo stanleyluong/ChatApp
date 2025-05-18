@@ -18,10 +18,9 @@ interface ChannelsProps {
   selectedChannel: Channel | null;
   onSettings?: () => void;
   onSignOut?: () => void;
-  user?: any;
 }
 
-export function Channels({ onSelectChannel, selectedChannel, onSettings, onSignOut, user }: ChannelsProps) {
+export function Channels({ onSelectChannel, selectedChannel, onSettings, onSignOut }: ChannelsProps) {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');

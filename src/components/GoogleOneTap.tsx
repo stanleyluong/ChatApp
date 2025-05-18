@@ -2,6 +2,11 @@ import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { useEffect } from 'react';
 import { auth } from '../firebase';
 
+interface GoogleOneTapResponse {
+  credential: string;
+  select_by: string;
+}
+
 // Only show One Tap if user is not signed in
 export function GoogleOneTap({ isSignedIn }: { isSignedIn: boolean }) {
   useEffect(() => {
@@ -11,11 +16,11 @@ export function GoogleOneTap({ isSignedIn }: { isSignedIn: boolean }) {
       console.error('Google Client ID is not set in .env');
       return;
     }
-    if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
+    if (!window.google?.accounts?.id) return;
 
     window.google.accounts.id.initialize({
       client_id: clientId,
-      callback: async (response: any) => {
+      callback: async (response: GoogleOneTapResponse) => {
         const credential = GoogleAuthProvider.credential(response.credential);
         try {
           await signInWithCredential(auth, credential);

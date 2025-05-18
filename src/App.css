@@ -50,7 +50,7 @@
   display: flex;
   align-items: center;
   padding: 0 24px;
-  background: #3F0E40;
+  background: #1976D2;
   height: 38px;
   line-height: 38px;
 }
@@ -167,15 +167,15 @@
 }
 
 .message-input .ant-input:focus {
-  border-color: #3F0E40;
-  box-shadow: 0 0 0 2px rgba(63, 14, 64, 0.1);
+  border-color: #1976D2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
 .send-button {
   border-radius: 4px;
   height: 40px;
   padding: 0 20px;
-  background: #3F0E40;
+  background: #1976D2;
 }
 
 .send-button:hover {
@@ -202,7 +202,7 @@
 
 /* Ant Design overrides */
 .ant-layout-sider {
-  background: #3F0E40;
+  background: #1976D2;
 }
 
 .ant-list-item-meta-title {
@@ -215,7 +215,7 @@
 }
 
 .ant-avatar {
-  background: #3F0E40;
+  background: #1976D2;
 }
 
 @media (max-width: 768px) {
@@ -270,4 +270,8 @@
   .ant-drawer-body {
     padding: 0 !important;
   }
+}
+
+.settings-modal .ant-modal-content {
+  margin-bottom: 12px;
 }

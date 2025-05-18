@@ -57,7 +57,7 @@ export function Channels({ onSelectChannel, selectedChannel }: ChannelsProps) {
   return (
     <div style={{ 
       width: '240px', 
-      background: '#3F0E40', 
+      background: '#1976D2', 
       color: 'white',
       height: '100%',
       display: 'flex',

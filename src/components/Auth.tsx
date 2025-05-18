@@ -45,8 +45,8 @@ export function Auth({ onSignIn }: AuthProps) {
         justifyContent: 'center',
         padding: '0 1.5rem',
       }}>
-        <SmileTwoTone style={{ fontSize: 64, marginBottom: 24 }} twoToneColor="#3F0E40" />
-        <h1 style={{ marginBottom: 12, fontWeight: 800, fontSize: 36, color: '#3F0E40', letterSpacing: 1, textAlign: 'center' }}>
+        <SmileTwoTone style={{ fontSize: 64, marginBottom: 24 }} twoToneColor="#1976D2" />
+        <h1 style={{ marginBottom: 12, fontWeight: 800, fontSize: 36, color: '#1976D2', letterSpacing: 1, textAlign: 'center' }}>
           Welcome to <span style={{ color: '#6C63FF' }}>ChatApp!</span>
         </h1>
         <div style={{ color: '#444', marginBottom: 32, fontSize: 18, fontWeight: 500, textAlign: 'center', maxWidth: 420 }}>
@@ -61,7 +61,7 @@ export function Auth({ onSignIn }: AuthProps) {
             width: '100%',
             maxWidth: 340,
             fontWeight: 600,
-            background: 'linear-gradient(90deg, #6C63FF 0%, #3F0E40 100%)',
+            background: 'linear-gradient(90deg, #6C63FF 0%, #1976D2 100%)',
             border: 'none',
             boxShadow: '0 2px 8px rgba(108,99,255,0.15)',
             transition: 'transform 0.15s',

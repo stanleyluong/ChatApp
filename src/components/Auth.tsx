@@ -1,11 +1,11 @@
 import { GoogleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button, Modal } from 'antd';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, type User } from 'firebase/auth';
 import { useState } from 'react';
 import { auth } from '../firebase';
 
 interface AuthProps {
-  onSignIn: (user: any) => void;
+  onSignIn: (user: User) => void;
 }
 
 export function Auth({ onSignIn }: AuthProps) {

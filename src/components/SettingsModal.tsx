@@ -6,6 +6,12 @@ import type { ColorResult } from 'react-color';
 import { SketchPicker } from 'react-color';
 import { v4 as uuidv4 } from 'uuid';
 
+interface UserSettings {
+  avatarUrl: string;
+  messageBg: string;
+  messageText: string;
+}
+
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -14,7 +20,6 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose, onSave, initialSettings }: SettingsModalProps) {
-  const [settings, setSettings] = useState<UserSettings>(initialSettings);
   const [avatarUrl, setAvatarUrl] = useState(initialSettings.avatarUrl || '');
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [messageBg, setMessageBg] = useState(initialSettings.messageBg || '#007a5a');
@@ -29,7 +34,8 @@ export function SettingsModal({ open, onClose, onSave, initialSettings }: Settin
       const url = await getDownloadURL(storageRef);
       setAvatarUrl(url);
       antdMessage.success('Profile picture uploaded!');
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to upload image:', error);
       antdMessage.error('Failed to upload image.');
     } finally {
       setAvatarUploading(false);
@@ -39,7 +45,11 @@ export function SettingsModal({ open, onClose, onSave, initialSettings }: Settin
   };
 
   const handleSave = () => {
-    onSave(settings);
+    onSave({
+      avatarUrl,
+      messageBg,
+      messageText
+    });
     onClose();
   };
 

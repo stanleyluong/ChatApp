@@ -1,8 +1,8 @@
-import { LogoutOutlined, MenuOutlined, SendOutlined, SettingOutlined } from '@ant-design/icons'
-import { Avatar, Button, Drawer, Input, Layout, List, Typography } from 'antd'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
-import { useEffect, useState } from 'react'
+import { LogoutOutlined, MenuOutlined, SettingOutlined } from '@ant-design/icons'
+import { Avatar, Button, Drawer, Input, Layout, Typography } from 'antd'
+import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
+import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, type Timestamp } from 'firebase/firestore'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import { Auth } from './components/Auth'
 import { Channels } from './components/Channels'
@@ -22,14 +22,16 @@ interface Message {
   sender: string
   senderId: string
   channelId: string
-  timestamp: any
+  timestamp: Timestamp
+  messageBg?: string
+  messageText?: string
 }
 
 interface Channel {
   id: string
   name: string
   description: string
-  createdAt: any
+  createdAt: Timestamp
 }
 
 interface UserSettings {
@@ -41,8 +43,8 @@ interface UserSettings {
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [user, setUser] = useState<any>(null)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -53,6 +55,8 @@ function App() {
     messageBg: '#007a5a',
     messageText: '#fff',
   })
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messageListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Fetch user settings from Firestore
@@ -110,8 +114,32 @@ function App() {
     console.log('isMobile:', isMobile);
   }, [isMobile]);
 
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [messages, selectedChannel]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (messageListRef.current) {
+        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+      }
+    }, 100);
+  }, [messages, selectedChannel]);
+
   const handleSendMessage = async () => {
-    if ((!newMessage.trim() && !imageUrl) || !user || !selectedChannel) return
+    if ((!newMessage.trim() && !selectedImage) || !user || !selectedChannel) return;
+
+    let imageUrl = '';
+    if (selectedImage) {
+      // Upload image to Firebase Storage
+      const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+      const { storage } = await import('./firebase');
+      const storageRef = ref(storage, `images/${Date.now()}_${selectedImage.name}`);
+      const snapshot = await uploadBytes(storageRef, selectedImage);
+      imageUrl = await getDownloadURL(snapshot.ref);
+    }
 
     try {
       await addDoc(collection(db, 'messages'), {
@@ -121,24 +149,15 @@ function App() {
         senderId: user.uid,
         channelId: selectedChannel.id,
         timestamp: serverTimestamp(),
-      })
-      setNewMessage('')
-      setImageUrl('')
+        messageBg: userSettings.messageBg,
+        messageText: userSettings.messageText,
+      });
+      setNewMessage('');
+      setSelectedImage(null);
     } catch (error) {
-      console.error('Error sending message:', error)
+      console.error('Error sending message:', error);
     }
-  }
-
-  const handleImageUploaded = (url: string) => {
-    setImageUrl(url)
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -249,20 +268,18 @@ function App() {
                   <Title level={4}>#{selectedChannel.name}</Title>
                   <p>{selectedChannel.description}</p>
                 </div>
-                <List
-                  className="message-list"
-                  dataSource={messages}
-                  renderItem={(message) => {
-                    const isCurrentUser = message.senderId === user.uid
-                    const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined
-                    const bgColor = isCurrentUser ? userSettings.messageBg : '#007a5a'
-                    const textColor = isCurrentUser ? userSettings.messageText : '#fff'
-
+                <div className="message-list" ref={messageListRef}>
+                  {messages.map((message, idx) => {
+                    const isCurrentUser = message.senderId === user.uid;
+                    const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined;
+                    const bgColor = message.messageBg || '#007a5a';
+                    const textColor = message.messageText || '#fff';
+                    const isLast = idx === messages.length - 1;
                     return (
-                      <List.Item className={`message-item ${isCurrentUser ? 'current-user' : ''}`}>
+                      <div key={message.id} className={`message-item ${isCurrentUser ? 'current-user' : ''}`}>
                         <div className="message-content" style={{ backgroundColor: bgColor, color: textColor }}>
                           <div className="message-header">
-                            <Avatar src={avatarUrl} style={{ backgroundColor: isCurrentUser ? userSettings.messageBg : '#007a5a' }}>
+                            <Avatar src={avatarUrl} style={{ backgroundColor: bgColor }}>
                               {message.sender[0]}
                             </Avatar>
                             <span className="sender-name">{message.sender}</span>
@@ -270,32 +287,46 @@ function App() {
                           {message.text && <p className="message-text">{message.text}</p>}
                           {message.imageUrl && (
                             <div className="message-image">
-                              <img src={message.imageUrl} alt="Shared content" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                              <img
+                                src={message.imageUrl}
+                                alt="Shared content"
+                                style={{ maxWidth: '100%', borderRadius: '8px' }}
+                                onLoad={() => {
+                                  if (isLast && messageListRef.current) {
+                                    messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                                  }
+                                }}
+                              />
                             </div>
                           )}
                         </div>
-                      </List.Item>
-                    )
-                  }}
-                />
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="message-input">
-                  <TextArea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type a message..."
-                    autoSize={{ minRows: 1, maxRows: 4 }}
-                  />
-                  <div className="message-actions">
-                    <ImageUpload onImageUploaded={handleImageUploaded} />
-                    <Button
-                      type="primary"
-                      icon={<SendOutlined />}
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim() && !imageUrl}
-                    >
-                      Send
-                    </Button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ImageUpload onImageSelected={setSelectedImage} />
+                    <TextArea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      autoSize={{ minRows: 1, maxRows: 4 }}
+                      style={{ flex: 1 }}
+                    />
+                    {selectedImage && (
+                      <img
+                        src={URL.createObjectURL(selectedImage)}
+                        alt="preview"
+                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }}
+                      />
+                    )}
                   </div>
                 </div>
               </div>

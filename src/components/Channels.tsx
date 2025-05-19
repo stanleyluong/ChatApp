@@ -12,6 +12,10 @@ interface Channel {
   name: string;
   description: string;
   createdAt: Timestamp;
+  messages?: {
+    text?: boolean;
+    image?: boolean;
+  };
 }
 
 interface ChannelsProps {

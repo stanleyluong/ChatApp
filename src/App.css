@@ -126,16 +126,20 @@
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .message-item {
   margin-bottom: 16px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: flex-start;
 }
 
 .message-item.current-user {
-  align-items: flex-end;
+  justify-content: flex-end;
 }
 
 .message-content {
@@ -276,12 +280,21 @@
   .chat-container {
     border-radius: 0;
     box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
   }
   .channel-header {
     padding: 12px 12px 8px 12px;
   }
   .message-list {
     padding: 12px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: unset;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .message-input {
     padding: 8px 12px;

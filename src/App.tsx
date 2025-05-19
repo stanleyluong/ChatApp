@@ -1,8 +1,8 @@
 import { LogoutOutlined, MenuOutlined, SettingOutlined } from '@ant-design/icons'
-import { Avatar, Button, Drawer, Input, Layout, Typography } from 'antd'
+import { Avatar, Button, Input, Layout, Typography } from 'antd'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, type Timestamp } from 'firebase/firestore'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './App.css'
 import { Auth } from './components/Auth'
 import { Channels } from './components/Channels'
@@ -11,7 +11,7 @@ import { ImageUpload } from './components/ImageUpload'
 import { SettingsModal } from './components/SettingsModal'
 import { auth, db } from './firebase'
 
-const { Header, Content, Sider } = Layout
+const { Sider } = Layout
 const { Title } = Typography
 const { TextArea } = Input
 
@@ -57,6 +57,7 @@ function App() {
   })
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const prevScrollHeight = useRef(0);
 
   useEffect(() => {
     // Fetch user settings from Firestore
@@ -120,12 +121,24 @@ function App() {
     }
   }, [messages, selectedChannel]);
 
+  useLayoutEffect(() => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+      prevScrollHeight.current = messageListRef.current.scrollHeight;
+    }
+  }, [messages, selectedChannel]);
+
   useEffect(() => {
-    setTimeout(() => {
-      if (messageListRef.current) {
+    const timeout = setTimeout(() => {
+      if (
+        messageListRef.current &&
+        messageListRef.current.scrollHeight > prevScrollHeight.current
+      ) {
         messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        prevScrollHeight.current = messageListRef.current.scrollHeight;
       }
-    }, 100);
+    }, 200);
+    return () => clearTimeout(timeout);
   }, [messages, selectedChannel]);
 
   const handleSendMessage = async () => {
@@ -194,150 +207,122 @@ function App() {
   return (
     <>
       <GoogleOneTap isSignedIn={true} />
-      <Layout className="layout">
-        <Header className="header">
-          {isMobile && (
-            <Button
-              type="text"
-              icon={<MenuOutlined style={{ color: 'white', fontSize: 24 }} />}
-              onClick={() => setDrawerOpen(!drawerOpen)}
-              style={{ marginRight: 16 }}
-            />
-          )}
-          <Title level={3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-            ChatApp
-            <span style={{ display: 'inline-block', verticalAlign: 'middle', marginTop: '10px' }}>
-              <svg viewBox="0 0 1024 1024" focusable="false" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
-                <path d="M464 512a32 32 0 1064 0 32 32 0 10-64 0zm160 0a32 32 0 1064 0 32 32 0 10-64 0zm-320 0a32 32 0 1064 0 32 32 0 10-64 0z" fill="#fff"/>
-                <path d="M512 64C264.6 64 64 238.7 64 448c0 99.2 48.6 189.2 128.7 254.6-7.7 41.2-27.2 80.2-56.7 110.7-6.2 6.3-8.1 15.6-4.6 23.6 3.5 8 11.3 13.1 19.8 13.1 66.2 0 120.7-24.2 159.2-48.2C370.7 819.2 439.6 832 512 832c247.4 0 448-174.7 448-384S759.4 64 512 64zm0 704c-67.2 0-131.2-13.2-186.2-38.2-4.7-2.2-10.2-1.7-14.3 1.3-36.2 25.7-81.2 44.7-132.2 51.2 27.2-32.2 45.2-70.7 52.2-112.2.8-4.7-1-9.5-4.7-12.5C120.2 613.2 80 533.7 80 448c0-191.2 200.6-352 432-352s432 160.8 432 352-200.6 352-432 352z" fill="#fff"/>
-              </svg>
-            </span>
-          </Title>
-          {!isMobile && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="layout">
+        <Sider width={240} theme="dark">
+          <Channels 
+            onSelectChannel={handleChannelSelect}
+            selectedChannel={selectedChannel}
+          />
+        </Sider>
+        <div className="main">
+          <div className="header">
+            {isMobile && (
               <Button
                 type="text"
-                icon={<SettingOutlined style={{ color: 'white', fontSize: 22 }} />}
-                onClick={() => setSettingsOpen(true)}
-                style={{ color: 'white' }}
-                aria-label="Settings"
+                icon={<MenuOutlined style={{ color: 'white', fontSize: 24 }} />}
+                onClick={() => setDrawerOpen(!drawerOpen)}
+                style={{ marginRight: 16 }}
               />
-              <span style={{ color: 'white' }}>{user.displayName}</span>
-              <Button 
-                type="text" 
-                icon={<LogoutOutlined />} 
-                onClick={handleSignOut}
-                style={{ color: 'white' }}
-              />
-            </div>
-          )}
-        </Header>
-        <Layout>
-          {!isMobile && (
-            <Sider width={240} theme="dark">
-              <Channels 
-                onSelectChannel={handleChannelSelect}
-                selectedChannel={selectedChannel}
-              />
-            </Sider>
-          )}
-          {isMobile && (
-            <Drawer
-              placement="left"
-              open={drawerOpen}
-              onClose={() => setDrawerOpen(false)}
-              styles={{ body: { padding: 0 } }}
-              width={240}
-              closable={false}
-              maskClosable={true}
-              style={{ zIndex: 2000 }}
-            >
-              <Channels 
-                onSelectChannel={handleChannelSelect}
-                selectedChannel={selectedChannel}
-                onSettings={() => setSettingsOpen(true)}
-                onSignOut={handleSignOut}
-                user={user}
-              />
-            </Drawer>
-          )}
-          <Content className="content">
-            {selectedChannel ? (
-              <div className="chat-container">
-                <div className="channel-header">
-                  <Title level={4}>#{selectedChannel.name}</Title>
-                  <p>{selectedChannel.description}</p>
-                </div>
-                <div className="message-list" ref={messageListRef}>
-                  {messages.map((message, idx) => {
-                    const isCurrentUser = message.senderId === user.uid;
-                    const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined;
-                    const bgColor = message.messageBg || '#007a5a';
-                    const textColor = message.messageText || '#fff';
-                    const isLast = idx === messages.length - 1;
-                    return (
-                      <div key={message.id} className={`message-item ${isCurrentUser ? 'current-user' : ''}`}>
-                        <div className="message-content" style={{ backgroundColor: bgColor, color: textColor }}>
-                          <div className="message-header">
-                            <Avatar src={avatarUrl} style={{ backgroundColor: bgColor }}>
-                              {message.sender[0]}
-                            </Avatar>
-                            <span className="sender-name">{message.sender}</span>
-                          </div>
-                          {message.text && <p className="message-text">{message.text}</p>}
-                          {message.imageUrl && (
-                            <div className="message-image">
-                              <img
-                                src={message.imageUrl}
-                                alt="Shared content"
-                                style={{ maxWidth: '100%', borderRadius: '8px' }}
-                                onLoad={() => {
-                                  if (isLast && messageListRef.current) {
-                                    messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-                                  }
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="message-input">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <ImageUpload onImageSelected={setSelectedImage} />
-                    <TextArea
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Type a message..."
-                      autoSize={{ minRows: 1, maxRows: 4 }}
-                      style={{ flex: 1 }}
-                    />
-                    {selectedImage && (
-                      <img
-                        src={URL.createObjectURL(selectedImage)}
-                        alt="preview"
-                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="no-channel-selected">
-                <Title level={3}>Select a channel to start chatting</Title>
+            )}
+            <Title level={3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+              ChatApp
+              <span style={{ display: 'inline-block', verticalAlign: 'middle', marginTop: '10px' }}>
+                <svg viewBox="0 0 1024 1024" focusable="false" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                  <path d="M464 512a32 32 0 1064 0 32 32 0 10-64 0zm160 0a32 32 0 1064 0 32 32 0 10-64 0zm-320 0a32 32 0 1064 0 32 32 0 10-64 0z" fill="#fff"/>
+                  <path d="M512 64C264.6 64 64 238.7 64 448c0 99.2 48.6 189.2 128.7 254.6-7.7 41.2-27.2 80.2-56.7 110.7-6.2 6.3-8.1 15.6-4.6 23.6 3.5 8 11.3 13.1 19.8 13.1 66.2 0 120.7-24.2 159.2-48.2C370.7 819.2 439.6 832 512 832c247.4 0 448-174.7 448-384S759.4 64 512 64zm0 704c-67.2 0-131.2-13.2-186.2-38.2-4.7-2.2-10.2-1.7-14.3 1.3-36.2 25.7-81.2 44.7-132.2 51.2 27.2-32.2 45.2-70.7 52.2-112.2.8-4.7-1-9.5-4.7-12.5C120.2 613.2 80 533.7 80 448c0-191.2 200.6-352 432-352s432 160.8 432 352-200.6 352-432 352z" fill="#fff"/>
+                </svg>
+              </span>
+            </Title>
+            {!isMobile && (
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <Button
+                  type="text"
+                  icon={<SettingOutlined style={{ color: 'white', fontSize: 22 }} />}
+                  onClick={() => setSettingsOpen(true)}
+                  style={{ color: 'white' }}
+                  aria-label="Settings"
+                />
+                <span style={{ color: 'white' }}>{user.displayName}</span>
+                <Button 
+                  type="text" 
+                  icon={<LogoutOutlined />} 
+                  onClick={handleSignOut}
+                  style={{ color: 'white' }}
+                />
               </div>
             )}
-          </Content>
-        </Layout>
-      </Layout>
+          </div>
+          <div className="chat-container">
+            <div className="channel-header">
+              {selectedChannel && <>
+                <Title level={4}>#{selectedChannel.name}</Title>
+                <p>{selectedChannel.description}</p>
+              </>}
+            </div>
+            <div className="message-list" ref={messageListRef}>
+              {messages.map((message, idx) => {
+                const isCurrentUser = message.senderId === user.uid;
+                const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined;
+                const bgColor = message.messageBg || '#007a5a';
+                const textColor = message.messageText || '#fff';
+                const isLast = idx === messages.length - 1;
+                return (
+                  <div key={message.id} className={`message-item ${isCurrentUser ? 'current-user' : ''}`}>
+                    <div className="message-content" style={{ backgroundColor: bgColor, color: textColor }}>
+                      <div className="message-header">
+                        <Avatar src={avatarUrl} style={{ backgroundColor: bgColor }}>
+                          {message.sender[0]}
+                        </Avatar>
+                        <span className="sender-name">{message.sender}</span>
+                      </div>
+                      {message.text && <p className="message-text">{message.text}</p>}
+                      {message.imageUrl && (
+                        <div className="message-image">
+                          <img
+                            src={message.imageUrl}
+                            alt="Shared content"
+                            style={{ maxWidth: '100%', borderRadius: '8px' }}
+                            onLoad={() => {
+                              if (isLast && messageListRef.current) {
+                                messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="message-input">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ImageUpload onImageSelected={setSelectedImage} />
+                <TextArea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Type a message..."
+                  autoSize={{ minRows: 1, maxRows: 4 }}
+                  style={{ flex: 1 }}
+                />
+                {selectedImage && (
+                  <img
+                    src={URL.createObjectURL(selectedImage)}
+                    alt="preview"
+                    style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

@@ -9,19 +9,16 @@ import { v4 as uuidv4 } from 'uuid';
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialValues: {
-    avatarUrl: string;
-    messageBg: string;
-    messageText: string;
-  };
-  onSave: (values: { avatarUrl: string; messageBg: string; messageText: string }) => void;
+  onSave: (settings: UserSettings) => Promise<void>;
+  initialSettings: UserSettings;
 }
 
-export function SettingsModal({ open, onClose, initialValues, onSave }: SettingsModalProps) {
-  const [avatarUrl, setAvatarUrl] = useState(initialValues.avatarUrl || '');
+export function SettingsModal({ open, onClose, onSave, initialSettings }: SettingsModalProps) {
+  const [settings, setSettings] = useState<UserSettings>(initialSettings);
+  const [avatarUrl, setAvatarUrl] = useState(initialSettings.avatarUrl || '');
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [messageBg, setMessageBg] = useState(initialValues.messageBg || '#007a5a');
-  const [messageText, setMessageText] = useState(initialValues.messageText || '#fff');
+  const [messageBg, setMessageBg] = useState(initialSettings.messageBg || '#007a5a');
+  const [messageText, setMessageText] = useState(initialSettings.messageText || '#fff');
 
   const handleAvatarUpload = async (file: File) => {
     setAvatarUploading(true);
@@ -42,7 +39,7 @@ export function SettingsModal({ open, onClose, initialValues, onSave }: Settings
   };
 
   const handleSave = () => {
-    onSave({ avatarUrl, messageBg, messageText });
+    onSave(settings);
     onClose();
   };
 

@@ -7,6 +7,7 @@ import './App.css'
 import { Auth } from './components/Auth'
 import { Channels } from './components/Channels'
 import { GoogleOneTap } from './components/GoogleOneTap'
+import { ImageUpload } from './components/ImageUpload'
 import { SettingsModal } from './components/SettingsModal'
 import { auth, db } from './firebase'
 
@@ -16,7 +17,8 @@ const { TextArea } = Input
 
 interface Message {
   id: string
-  text: string
+  text?: string
+  imageUrl?: string
   sender: string
   senderId: string
   channelId: string
@@ -39,6 +41,7 @@ interface UserSettings {
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [user, setUser] = useState<any>(null)
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -108,20 +111,26 @@ function App() {
   }, [isMobile]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || !selectedChannel) return
+    if ((!newMessage.trim() && !imageUrl) || !user || !selectedChannel) return
 
     try {
       await addDoc(collection(db, 'messages'), {
-        text: newMessage,
+        text: newMessage.trim() || null,
+        imageUrl: imageUrl || null,
         sender: user.displayName || 'Anonymous',
         senderId: user.uid,
         channelId: selectedChannel.id,
         timestamp: serverTimestamp(),
       })
       setNewMessage('')
+      setImageUrl('')
     } catch (error) {
       console.error('Error sending message:', error)
     }
+  }
+
+  const handleImageUploaded = (url: string) => {
+    setImageUrl(url)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -248,21 +257,23 @@ function App() {
                     const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined
                     const bgColor = isCurrentUser ? userSettings.messageBg : '#007a5a'
                     const textColor = isCurrentUser ? userSettings.messageText : '#fff'
+
                     return (
-                      <List.Item className={`message ${isCurrentUser ? 'message-sent' : 'message-received'}`}
-                        style={{ background: bgColor, color: textColor }}>
-                        <List.Item.Meta
-                          avatar={
-                            <Avatar
-                              src={avatarUrl || (isCurrentUser ? user.photoURL : undefined)}
-                              style={{ marginLeft: 8, marginRight: 12 }}
-                            >
+                      <List.Item className={`message-item ${isCurrentUser ? 'current-user' : ''}`}>
+                        <div className="message-content" style={{ backgroundColor: bgColor, color: textColor }}>
+                          <div className="message-header">
+                            <Avatar src={avatarUrl} style={{ backgroundColor: isCurrentUser ? userSettings.messageBg : '#007a5a' }}>
                               {message.sender[0]}
                             </Avatar>
-                          }
-                          title={<span style={{ color: textColor, fontWeight: 600 }}>{message.sender}</span>}
-                          description={<span style={{ color: textColor }}>{message.text}</span>}
-                        />
+                            <span className="sender-name">{message.sender}</span>
+                          </div>
+                          {message.text && <p className="message-text">{message.text}</p>}
+                          {message.imageUrl && (
+                            <div className="message-image">
+                              <img src={message.imageUrl} alt="Shared content" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                            </div>
+                          )}
+                        </div>
                       </List.Item>
                     )
                   }}
@@ -272,28 +283,25 @@ function App() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder={`Message #${selectedChannel.name}`}
+                    placeholder="Type a message..."
                     autoSize={{ minRows: 1, maxRows: 4 }}
                   />
-                  <Button
-                    type="primary"
-                    icon={<SendOutlined />}
-                    onClick={handleSendMessage}
-                    className="send-button"
-                  >
-                    Send
-                  </Button>
+                  <div className="message-actions">
+                    <ImageUpload onImageUploaded={handleImageUploaded} />
+                    <Button
+                      type="primary"
+                      icon={<SendOutlined />}
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() && !imageUrl}
+                    >
+                      Send
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                height: '100%',
-                color: '#666'
-              }}>
-                Select a channel to start chatting
+              <div className="no-channel-selected">
+                <Title level={3}>Select a channel to start chatting</Title>
               </div>
             )}
           </Content>
@@ -302,8 +310,8 @@ function App() {
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        initialValues={userSettings}
         onSave={handleSaveSettings}
+        initialSettings={userSettings}
       />
     </>
   )

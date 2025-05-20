@@ -1,4 +1,4 @@
-import { LogoutOutlined, MenuOutlined, SettingOutlined } from '@ant-design/icons'
+import { GifOutlined, LogoutOutlined, MenuOutlined, SettingOutlined } from '@ant-design/icons'
 import { Button, Drawer, Dropdown, Input, Layout, Modal, Typography } from 'antd'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, type Timestamp } from 'firebase/firestore'
@@ -19,6 +19,7 @@ interface Message {
   id: string
   text?: string
   imageUrl?: string
+  gifUrl?: string
   sender: string
   senderId: string
   channelId: string
@@ -38,6 +39,23 @@ interface UserSettings {
   avatarUrl: string
   messageBg: string
   messageText: string
+}
+
+interface GiphyImageFormat {
+  url: string;
+  width: string;
+  height: string;
+}
+
+interface GiphyResult {
+  id: string;
+  title: string;
+  images: {
+    fixed_width: GiphyImageFormat;
+    original: GiphyImageFormat;
+    // Add other formats if needed
+  };
+  // Add other Giphy fields if needed
 }
 
 // Long-press hook for mobile
@@ -183,6 +201,19 @@ function MessageItem({
                       {message.text && (
                         <span style={{ display: 'block' }}>{message.text}</span>
                       )}
+                      {message.gifUrl && (
+                        <img 
+                          src={message.gifUrl} 
+                          alt="GIF" 
+                          style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 12, marginTop: message.text || message.imageUrl ? 6 : 0, display: 'block' }}
+                          onLoad={() => {
+                            if (idx === undefined || idx === -1) return;
+                            if (messageListRef.current) {
+                              messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                            }
+                          }}
+                        />
+                      )}
                     </>
                   )}
                 </div>
@@ -233,6 +264,19 @@ function MessageItem({
                   {message.text && (
                     <span style={{ display: 'block' }}>{message.text}</span>
                   )}
+                  {message.gifUrl && (
+                    <img 
+                      src={message.gifUrl} 
+                      alt="GIF" 
+                      style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 12, marginTop: message.text || message.imageUrl ? 6 : 0, display: 'block' }}
+                      onLoad={() => {
+                        if (idx === undefined || idx === -1) return;
+                        if (messageListRef.current) {
+                          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                        }
+                      }}
+                    />
+                  )}
                 </>
               </div>
             </div>
@@ -261,6 +305,13 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const [channels, setChannels] = useState<Channel[]>([])
+
+  // Giphy State
+  const [giphyModalVisible, setGiphyModalVisible] = useState(false);
+  const [giphySearchTerm, setGiphySearchTerm] = useState('');
+  const [giphyResults, setGiphyResults] = useState<GiphyResult[]>([]);
+  const [giphyLoading, setGiphyLoading] = useState(false);
+  const GIPHY_API_KEY = import.meta.env.VITE_GIPHY_API_KEY;
 
   useEffect(() => {
     // Fetch user settings from Firestore
@@ -358,28 +409,29 @@ function App() {
     const found = channels.find(c => c.id === lastChannelId);
     if (found) {
       setSelectedChannel(found);
-    } else {
+    } else if (channels.length > 0) { // Ensure channels[0] exists
       setSelectedChannel(channels[0]);
     }
   }, [user, channels, selectedChannel]);
 
-  const handleSendMessage = async () => {
-    if ((!newMessage.trim() && !selectedImage) || !user || !selectedChannel) return;
+  const handleSendMessage = async (gifUrl?: string) => {
+    if ((!newMessage.trim() && !selectedImage && !gifUrl) || !user || !selectedChannel) return;
 
-    let imageUrl = '';
+    let imageUrlFirebase = '';
     if (selectedImage) {
       // Upload image to Firebase Storage
       const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
       const { storage } = await import('./firebase');
       const storageRef = ref(storage, `images/${Date.now()}_${selectedImage.name}`);
       const snapshot = await uploadBytes(storageRef, selectedImage);
-      imageUrl = await getDownloadURL(snapshot.ref);
+      imageUrlFirebase = await getDownloadURL(snapshot.ref);
     }
 
     try {
       await addDoc(collection(db, 'messages'), {
         text: newMessage.trim() || null,
-        imageUrl: imageUrl || null,
+        imageUrl: imageUrlFirebase || null,
+        gifUrl: gifUrl || null,
         sender: user.displayName || 'Anonymous',
         senderId: user.uid,
         channelId: selectedChannel.id,
@@ -389,9 +441,35 @@ function App() {
       });
       setNewMessage('');
       setSelectedImage(null);
+      setGiphyModalVisible(false);
+      setGiphySearchTerm('');
+      setGiphyResults([]);
     } catch (error) {
       console.error('Error sending message:', error);
     }
+  };
+
+  const handleGiphySearch = async () => {
+    if (!giphySearchTerm.trim()) return;
+    setGiphyLoading(true);
+    setGiphyResults([]); // Clear previous results
+    try {
+      const response = await fetch(
+        `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(
+          giphySearchTerm
+        )}&limit=24&offset=0&rating=g&lang=en`
+      );
+      if (!response.ok) {
+        throw new Error(`Giphy API error: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setGiphyResults(data.data as GiphyResult[]);
+    } catch (error) {
+      console.error('Error fetching Giphy GIFs:', error);
+      Modal.error({ title: 'Giphy Error', content: 'Could not fetch GIFs. Please try again.' });
+      setGiphyResults([]); // Clear results on error
+    }
+    setGiphyLoading(false);
   };
 
   const handleSignOut = async () => {
@@ -543,6 +621,11 @@ function App() {
             <div className="message-input">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ImageUpload onImageSelected={setSelectedImage} />
+                <Button 
+                  icon={<GifOutlined />} 
+                  onClick={() => setGiphyModalVisible(true)}
+                  aria-label="Send a GIF"
+                />
                 <TextArea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
@@ -574,6 +657,38 @@ function App() {
         onSave={handleSaveSettings}
         initialSettings={userSettings}
       />
+      {/* Giphy Modal */}
+      <Modal
+        title="Search Giphy"
+        open={giphyModalVisible}
+        onCancel={() => {
+          setGiphyModalVisible(false);
+          setGiphySearchTerm('');
+          setGiphyResults([]);
+        }}
+        footer={null} // We'll handle selection differently
+        width={600}
+      >
+        <Input
+          placeholder="Search for a GIF..."
+          value={giphySearchTerm}
+          onChange={(e) => setGiphySearchTerm(e.target.value)}
+          onPressEnter={handleGiphySearch}
+          style={{ marginBottom: 16 }}
+        />
+        {giphyLoading && <p style={{textAlign: 'center'}}>Loading GIFs...</p>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
+          {giphyResults.map((gif) => (
+            <img
+              key={gif.id}
+              src={gif.images.fixed_width.url}
+              alt={gif.title || 'Giphy GIF'}
+              style={{ width: 'calc(33.333% - 10px)', cursor: 'pointer', borderRadius: '4px' }}
+              onClick={() => handleSendMessage(gif.images.original.url)}
+            />
+          ))}
+        </div>
+      </Modal>
     </>
   )
 }

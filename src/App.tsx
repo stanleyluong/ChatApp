@@ -1,7 +1,7 @@
 import { LogoutOutlined, MenuOutlined, SettingOutlined } from '@ant-design/icons'
-import { Button, Drawer, Input, Layout, Typography } from 'antd'
+import { Button, Drawer, Dropdown, Input, Layout, Modal, Typography } from 'antd'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, type Timestamp } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, type Timestamp } from 'firebase/firestore'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './App.css'
 import { Auth } from './components/Auth'
@@ -38,6 +38,162 @@ interface UserSettings {
   avatarUrl: string
   messageBg: string
   messageText: string
+}
+
+// Long-press hook for mobile
+function useLongPress(callback: () => void, ms = 500) {
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const start = () => {
+    timerRef.current = setTimeout(callback, ms);
+  };
+  const clear = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  };
+  return { onTouchStart: start, onTouchEnd: clear, onTouchMove: clear, onTouchCancel: clear };
+}
+
+function MessageItem({
+  message,
+  idx,
+  isCurrentUser,
+  showGroupHeader,
+  initials,
+  isMobile,
+  handleDeleteMessage,
+  handleEditMessage,
+  messageListRef
+}: {
+  message: Message,
+  idx: number,
+  isCurrentUser: boolean,
+  showGroupHeader: boolean,
+  initials: string,
+  isMobile: boolean,
+  handleDeleteMessage: (id: string) => Promise<void>,
+  handleEditMessage: (id: string, newText: string) => Promise<void>,
+  messageListRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(message.text || '');
+  // AntD v5 menu items
+  const menu = {
+    items: ([
+      message.text
+        ? {
+            key: 'edit',
+            label: 'Edit',
+            onClick: () => {
+              setEditValue(message.text || '');
+              setEditing(true);
+            }
+          }
+        : null,
+      {
+        key: 'delete',
+        danger: true,
+        label: 'Delete',
+        onClick: async () => {
+          await Modal.confirm({
+            content: 'This action cannot be undone.',
+            okText: 'Delete',
+            okType: 'danger',
+            cancelText: 'Cancel',
+            onOk: async () => {
+              await handleDeleteMessage(message.id);
+            },
+          });
+        }
+      }
+    ]).filter(Boolean)
+  };
+  // Always call the hook, only use its props if needed
+  const longPress = useLongPress(() => {
+    const trigger = document.getElementById(`menu-trigger-${message.id}`);
+    if (trigger) trigger.click();
+  });
+  const longPressProps = isCurrentUser && isMobile ? longPress : {};
+  const dropdownProps = isCurrentUser
+    ? {
+        menu,
+        trigger: [isMobile ? 'click' : 'contextMenu'] as ('contextMenu' | 'click')[],
+      }
+    : {};
+  return (
+    <Dropdown key={message.id} {...dropdownProps}>
+      <div
+        id={isCurrentUser ? `menu-trigger-${message.id}` : undefined}
+        className={`message-group${showGroupHeader ? ' new-group' : ''}`}
+        style={{ marginTop: showGroupHeader ? 16 : 2 }}
+        {...longPressProps}
+      >
+        <div style={{ display: 'flex', flexDirection: isCurrentUser ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+          {/* Avatar for others, only on first in group */}
+          {showGroupHeader && !isCurrentUser ? (
+            <div style={{ width: 32, margin: '0 8px 0 0' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#bbb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15 }}>{initials}</div>
+            </div>
+          ) : (
+            <div style={{ width: 32, margin: '0 8px 0 0' }} />
+          )}
+          {/* Bubble column */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCurrentUser ? 'flex-end' : 'flex-start', flex: 1 }}>
+            {showGroupHeader && (
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: isCurrentUser ? 'right' : 'left', fontWeight: 500 }}>{message.sender}</div>
+            )}
+            <div className={`bubble${isCurrentUser ? ' current-user' : ''} bubble-tail`} style={{ marginBottom: 2, maxWidth: '80%' }}>
+              {editing ? (
+                <div style={{ marginTop: 2 }}>
+                  <Input.TextArea
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    autoSize={{ minRows: 1, maxRows: 4 }}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={async () => {
+                        await handleEditMessage(message.id, editValue);
+                        setEditing(false);
+                      }}
+                      disabled={editValue.trim() === '' || editValue === message.text}
+                    >
+                      Save
+                    </Button>
+                    <Button size="small" onClick={() => setEditing(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {message.imageUrl ? (
+                    <img
+                      src={message.imageUrl}
+                      alt="Shared content"
+                      style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
+                      onLoad={() => {
+                        if (idx === undefined) return;
+                        if (idx === -1) return;
+                        if (messageListRef.current) {
+                          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                        }
+                      }}
+                    />
+                  ) : null}
+                  {message.text && (
+                    <span style={{ display: 'block' }}>{message.text}</span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Dropdown>
+  );
 }
 
 function App() {
@@ -213,6 +369,24 @@ function App() {
     await setDoc(doc(db, 'userSettings', user.uid), settings, { merge: true })
   }
 
+  // Delete message handler
+  const handleDeleteMessage = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'messages', id));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
+  };
+
+  // Edit message handler
+  const handleEditMessage = async (id: string, newText: string) => {
+    try {
+      await setDoc(doc(db, 'messages', id), { text: newText }, { merge: true });
+    } catch (error) {
+      console.error('Error editing message:', error);
+    }
+  };
+
   if (authLoading) {
     return <div />
   }
@@ -302,48 +476,20 @@ function App() {
                 const isCurrentUser = message.senderId === user?.uid;
                 const prev = messages[idx - 1];
                 const showGroupHeader = !prev || prev.senderId !== message.senderId;
-                const avatarUrl = !isCurrentUser && showGroupHeader && message.senderId ? undefined : undefined;
                 const initials = message.sender ? message.sender.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) : '?';
                 return (
-                  <div key={message.id} className={`message-group${showGroupHeader ? ' new-group' : ''}`} style={{ marginTop: showGroupHeader ? 16 : 2 }}>
-                    <div style={{ display: 'flex', flexDirection: isCurrentUser ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
-                      {/* Avatar for others, only on first in group */}
-                      {showGroupHeader && !isCurrentUser ? (
-                        <div style={{ width: 32, margin: '0 8px 0 0' }}>
-                          {avatarUrl ? (
-                            <img src={avatarUrl} alt={message.sender} style={{ width: 32, height: 32, borderRadius: '50%', background: '#eee', objectFit: 'cover' }} />
-                          ) : (
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#bbb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15 }}>{initials}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ width: 32, margin: '0 8px 0 0' }} />
-                      )}
-                      {/* Bubble column */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCurrentUser ? 'flex-end' : 'flex-start', flex: 1 }}>
-                        {showGroupHeader && (
-                          <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: isCurrentUser ? 'right' : 'left', fontWeight: 500 }}>{message.sender}</div>
-                        )}
-                        <div className={`bubble${isCurrentUser ? ' current-user' : ''} bubble-tail`} style={{ marginBottom: 2, maxWidth: '80%' }}>
-                          {message.imageUrl ? (
-                            <img
-                              src={message.imageUrl}
-                              alt="Shared content"
-                              style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
-                              onLoad={() => {
-                                if (idx === messages.length - 1 && messageListRef.current) {
-                                  messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-                                }
-                              }}
-                            />
-                          ) : null}
-                          {message.text && (
-                            <span style={{ display: 'block' }}>{message.text}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    idx={idx}
+                    isCurrentUser={isCurrentUser}
+                    showGroupHeader={showGroupHeader}
+                    initials={initials}
+                    isMobile={isMobile}
+                    handleDeleteMessage={handleDeleteMessage}
+                    handleEditMessage={handleEditMessage}
+                    messageListRef={messageListRef}
+                  />
                 );
               })}
             </div>

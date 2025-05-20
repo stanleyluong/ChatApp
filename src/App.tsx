@@ -108,96 +108,139 @@ function MessageItem({
 
   const menu = { items };
   
-  // Always call the hook, only use its props if needed
+  // Always call the hook, only use its props if needed for current user & mobile
   const longPress = useLongPress(() => {
     const trigger = document.getElementById(`menu-trigger-${message.id}`);
     if (trigger) trigger.click();
   });
-  const longPressProps = isCurrentUser && isMobile ? longPress : {};
-  const dropdownProps = isCurrentUser
-    ? {
-        menu,
-        trigger: [isMobile ? 'click' : 'contextMenu'] as ('contextMenu' | 'click')[],
-      }
-    : {};
 
-  return (
-    <Dropdown key={message.id} {...dropdownProps}>
-      <div>
+  if (isCurrentUser) {
+    const currentDropdownProps = {
+      menu,
+      trigger: [isMobile ? 'click' : 'contextMenu'] as ('contextMenu' | 'click')[],
+    };
+    const currentLongPressProps = isMobile ? longPress : {};
+
+    return (
+      <Dropdown key={message.id} {...currentDropdownProps}>
+        <div> {/* Outer div, child of Dropdown */}
+          <div
+            id={`menu-trigger-${message.id}`}
+            className={`message-group${showGroupHeader ? ' new-group' : ''}`}
+            style={{ marginTop: showGroupHeader ? 16 : 2 }}
+            {...currentLongPressProps}
+          >
+            <div style={{ display: 'flex', flexDirection: 'row-reverse', alignItems: 'flex-end' }}>
+              {/* Avatar for current user (placeholder if showGroupHeader is false) */}
+              <div style={{ width: 32, margin: '0 8px 0 0' }} /> {/* Avatar placeholder for current user or if not new group */}
+              
+              {/* Bubble column for current user */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flex: 1 }}>
+                {showGroupHeader && (
+                  <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: 'right', fontWeight: 500 }}>{message.sender}</div>
+                )}
+                <div className={'bubble current-user bubble-tail'} style={{ marginBottom: 2, maxWidth: '80%' }}>
+                  {editing ? (
+                    <div style={{ marginTop: 2 }}>
+                      <Input.TextArea
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        autoSize={{ minRows: 1, maxRows: 4 }}
+                        style={{ marginBottom: 8 }}
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={async () => {
+                            await handleEditMessage(message.id, editValue);
+                            setEditing(false);
+                          }}
+                          disabled={editValue.trim() === '' || editValue === message.text}
+                        >
+                          Save
+                        </Button>
+                        <Button size="small" onClick={() => setEditing(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {message.imageUrl ? (
+                        <img
+                          src={message.imageUrl}
+                          alt="Shared content"
+                          style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
+                          onLoad={() => {
+                            if (idx === undefined || idx === -1) return;
+                            if (messageListRef.current) {
+                              messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                            }
+                          }}
+                        />
+                      ) : null}
+                      {message.text && (
+                        <span style={{ display: 'block' }}>{message.text}</span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Dropdown>
+    );
+  } else { // Not the current user
+    return (
+      <div> {/* Outer div, same structure as when Dropdown is present */}
         <div
-          id={isCurrentUser ? `menu-trigger-${message.id}` : undefined}
           className={`message-group${showGroupHeader ? ' new-group' : ''}`}
           style={{ marginTop: showGroupHeader ? 16 : 2 }}
-          {...longPressProps}
+          // No id or longPressProps for non-current user messages
         >
-          <div style={{ display: 'flex', flexDirection: isCurrentUser ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end' }}>
             {/* Avatar for others, only on first in group */}
-            {showGroupHeader && !isCurrentUser ? (
+            {showGroupHeader ? ( // No !isCurrentUser check needed here as we are in the else block
               <div style={{ width: 32, margin: '0 8px 0 0' }}>
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#bbb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15 }}>{initials}</div>
               </div>
             ) : (
               <div style={{ width: 32, margin: '0 8px 0 0' }} />
             )}
-            {/* Bubble column */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCurrentUser ? 'flex-end' : 'flex-start', flex: 1 }}>
+            {/* Bubble column for other users */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1 }}>
               {showGroupHeader && (
-                <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: isCurrentUser ? 'right' : 'left', fontWeight: 500 }}>{message.sender}</div>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: 'left', fontWeight: 500 }}>{message.sender}</div>
               )}
-              <div className={`bubble${isCurrentUser ? ' current-user' : ''} bubble-tail`} style={{ marginBottom: 2, maxWidth: '80%' }}>
-                {editing ? (
-                  <div style={{ marginTop: 2 }}>
-                    <Input.TextArea
-                      value={editValue}
-                      onChange={e => setEditValue(e.target.value)}
-                      autoSize={{ minRows: 1, maxRows: 4 }}
-                      style={{ marginBottom: 8 }}
+              <div className={'bubble bubble-tail'} style={{ marginBottom: 2, maxWidth: '80%' }}>
+                {/* Editing state should not be reachable here as menu is not available */}
+                <>
+                  {message.imageUrl ? (
+                    <img
+                      src={message.imageUrl}
+                      alt="Shared content"
+                      style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
+                      onLoad={() => {
+                        if (idx === undefined || idx === -1) return;
+                        if (messageListRef.current) {
+                          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                        }
+                      }}
                     />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Button
-                        type="primary"
-                        size="small"
-                        onClick={async () => {
-                          await handleEditMessage(message.id, editValue);
-                          setEditing(false);
-                        }}
-                        disabled={editValue.trim() === '' || editValue === message.text}
-                      >
-                        Save
-                      </Button>
-                      <Button size="small" onClick={() => setEditing(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {message.imageUrl ? (
-                      <img
-                        src={message.imageUrl}
-                        alt="Shared content"
-                        style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
-                        onLoad={() => {
-                          if (idx === undefined) return;
-                          if (idx === -1) return;
-                          if (messageListRef.current) {
-                            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-                          }
-                        }}
-                      />
-                    ) : null}
-                    {message.text && (
-                      <span style={{ display: 'block' }}>{message.text}</span>
-                    )}
-                  </>
-                )}
+                  ) : null}
+                  {message.text && (
+                    <span style={{ display: 'block' }}>{message.text}</span>
+                  )}
+                </>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </Dropdown>
-  );
+    );
+  }
 }
 
 function App() {

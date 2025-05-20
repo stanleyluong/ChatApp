@@ -1,5 +1,5 @@
 import { LogoutOutlined, MenuOutlined, SettingOutlined } from '@ant-design/icons'
-import { Avatar, Button, Input, Layout, Typography } from 'antd'
+import { Button, Drawer, Input, Layout, Typography } from 'antd'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, type Timestamp } from 'firebase/firestore'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -57,7 +57,7 @@ function App() {
   })
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
-  const prevScrollHeight = useRef(0);
+  const [channels, setChannels] = useState<Channel[]>([])
 
   useEffect(() => {
     // Fetch user settings from Firestore
@@ -123,23 +123,42 @@ function App() {
 
   useLayoutEffect(() => {
     if (messageListRef.current) {
+      // Scroll immediately
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-      prevScrollHeight.current = messageListRef.current.scrollHeight;
+      // Scroll again after a short delay to catch images
+      const timeout = setTimeout(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+      }, 200);
+      return () => clearTimeout(timeout);
     }
   }, [messages, selectedChannel]);
 
+  // Fetch channels
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (
-        messageListRef.current &&
-        messageListRef.current.scrollHeight > prevScrollHeight.current
-      ) {
-        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-        prevScrollHeight.current = messageListRef.current.scrollHeight;
-      }
-    }, 200);
-    return () => clearTimeout(timeout);
-  }, [messages, selectedChannel]);
+    const q = query(collection(db, 'channels'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newChannels = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Channel[];
+      setChannels(newChannels);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Restore last channel or select first
+  useEffect(() => {
+    if (!user || !channels.length || selectedChannel) return;
+    const lastChannelId = localStorage.getItem('lastChannelId');
+    const found = channels.find(c => c.id === lastChannelId);
+    if (found) {
+      setSelectedChannel(found);
+    } else {
+      setSelectedChannel(channels[0]);
+    }
+  }, [user, channels, selectedChannel]);
 
   const handleSendMessage = async () => {
     if ((!newMessage.trim() && !selectedImage) || !user || !selectedChannel) return;
@@ -183,8 +202,9 @@ function App() {
   }
 
   const handleChannelSelect = (channel: Channel) => {
-    setSelectedChannel(channel)
-    if (isMobile) setDrawerOpen(false)
+    setSelectedChannel(channel);
+    localStorage.setItem('lastChannelId', channel.id);
+    if (isMobile) setDrawerOpen(false);
   }
 
   const handleSaveSettings = async (settings: UserSettings) => {
@@ -208,12 +228,30 @@ function App() {
     <>
       <GoogleOneTap isSignedIn={true} />
       <div className="layout">
-        <Sider width={240} theme="dark">
-          <Channels 
-            onSelectChannel={handleChannelSelect}
-            selectedChannel={selectedChannel}
-          />
-        </Sider>
+        {!isMobile && (
+          <Sider width={240} theme="dark">
+            <Channels 
+              onSelectChannel={handleChannelSelect}
+              selectedChannel={selectedChannel}
+            />
+          </Sider>
+        )}
+        {isMobile && (
+          <Drawer
+            placement="left"
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            styles={{ body: { padding: 0 } }}
+            width={240}
+            closable={false}
+            style={{ zIndex: 2000 }}
+          >
+            <Channels 
+              onSelectChannel={handleChannelSelect}
+              selectedChannel={selectedChannel}
+            />
+          </Drawer>
+        )}
         <div className="main">
           <div className="header">
             {isMobile && (
@@ -261,35 +299,49 @@ function App() {
             </div>
             <div className="message-list" ref={messageListRef}>
               {messages.map((message, idx) => {
-                const isCurrentUser = message.senderId === user.uid;
-                const avatarUrl = isCurrentUser && userSettings.avatarUrl ? userSettings.avatarUrl : undefined;
-                const bgColor = message.messageBg || '#007a5a';
-                const textColor = message.messageText || '#fff';
-                const isLast = idx === messages.length - 1;
+                const isCurrentUser = message.senderId === user?.uid;
+                const prev = messages[idx - 1];
+                const showGroupHeader = !prev || prev.senderId !== message.senderId;
+                const avatarUrl = !isCurrentUser && showGroupHeader && message.senderId ? undefined : undefined;
+                const initials = message.sender ? message.sender.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) : '?';
                 return (
-                  <div key={message.id} className={`message-item ${isCurrentUser ? 'current-user' : ''}`}>
-                    <div className="message-content" style={{ backgroundColor: bgColor, color: textColor }}>
-                      <div className="message-header">
-                        <Avatar src={avatarUrl} style={{ backgroundColor: bgColor }}>
-                          {message.sender[0]}
-                        </Avatar>
-                        <span className="sender-name">{message.sender}</span>
-                      </div>
-                      {message.text && <p className="message-text">{message.text}</p>}
-                      {message.imageUrl && (
-                        <div className="message-image">
-                          <img
-                            src={message.imageUrl}
-                            alt="Shared content"
-                            style={{ maxWidth: '100%', borderRadius: '8px' }}
-                            onLoad={() => {
-                              if (isLast && messageListRef.current) {
-                                messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-                              }
-                            }}
-                          />
+                  <div key={message.id} className={`message-group${showGroupHeader ? ' new-group' : ''}`} style={{ marginTop: showGroupHeader ? 16 : 2 }}>
+                    <div style={{ display: 'flex', flexDirection: isCurrentUser ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+                      {/* Avatar for others, only on first in group */}
+                      {showGroupHeader && !isCurrentUser ? (
+                        <div style={{ width: 32, margin: '0 8px 0 0' }}>
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt={message.sender} style={{ width: 32, height: 32, borderRadius: '50%', background: '#eee', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#bbb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15 }}>{initials}</div>
+                          )}
                         </div>
+                      ) : (
+                        <div style={{ width: 32, margin: '0 8px 0 0' }} />
                       )}
+                      {/* Bubble column */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCurrentUser ? 'flex-end' : 'flex-start', flex: 1 }}>
+                        {showGroupHeader && (
+                          <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: isCurrentUser ? 'right' : 'left', fontWeight: 500 }}>{message.sender}</div>
+                        )}
+                        <div className={`bubble${isCurrentUser ? ' current-user' : ''} bubble-tail`} style={{ marginBottom: 2, maxWidth: '80%' }}>
+                          {message.imageUrl ? (
+                            <img
+                              src={message.imageUrl}
+                              alt="Shared content"
+                              style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
+                              onLoad={() => {
+                                if (idx === messages.length - 1 && messageListRef.current) {
+                                  messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                                }
+                              }}
+                            />
+                          ) : null}
+                          {message.text && (
+                            <span style={{ display: 'block' }}>{message.text}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );

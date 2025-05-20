@@ -76,37 +76,38 @@ function MessageItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(message.text || '');
-  // AntD v5 menu items
-  const menu = {
-    items: ([
-      message.text
-        ? {
-            key: 'edit',
-            label: 'Edit',
-            onClick: () => {
-              setEditValue(message.text || '');
-              setEditing(true);
-            }
-          }
-        : null,
-      {
-        key: 'delete',
-        danger: true,
-        label: 'Delete',
-        onClick: async () => {
-          await Modal.confirm({
-            content: 'This action cannot be undone.',
-            okText: 'Delete',
-            okType: 'danger',
-            cancelText: 'Cancel',
-            onOk: async () => {
-              await handleDeleteMessage(message.id);
-            },
-          });
-        }
+  
+  // Build menu items array explicitly, only push valid objects
+  const items = [];
+  if (typeof message.text === 'string' && message.text.trim() !== '') {
+    items.push({
+      key: 'edit',
+      label: 'Edit',
+      onClick: () => {
+        setEditValue(message.text || '');
+        setEditing(true);
       }
-    ]).filter(Boolean)
-  };
+    });
+  }
+  items.push({
+    key: 'delete',
+    danger: true,
+    label: 'Delete',
+    onClick: async () => {
+      await Modal.confirm({
+        content: 'This action cannot be undone.',
+        okText: 'Delete',
+        okType: 'danger',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          await handleDeleteMessage(message.id);
+        },
+      });
+    }
+  });
+
+  const menu = { items };
+  
   // Always call the hook, only use its props if needed
   const longPress = useLongPress(() => {
     const trigger = document.getElementById(`menu-trigger-${message.id}`);
@@ -119,75 +120,78 @@ function MessageItem({
         trigger: [isMobile ? 'click' : 'contextMenu'] as ('contextMenu' | 'click')[],
       }
     : {};
+
   return (
     <Dropdown key={message.id} {...dropdownProps}>
-      <div
-        id={isCurrentUser ? `menu-trigger-${message.id}` : undefined}
-        className={`message-group${showGroupHeader ? ' new-group' : ''}`}
-        style={{ marginTop: showGroupHeader ? 16 : 2 }}
-        {...longPressProps}
-      >
-        <div style={{ display: 'flex', flexDirection: isCurrentUser ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
-          {/* Avatar for others, only on first in group */}
-          {showGroupHeader && !isCurrentUser ? (
-            <div style={{ width: 32, margin: '0 8px 0 0' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#bbb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15 }}>{initials}</div>
-            </div>
-          ) : (
-            <div style={{ width: 32, margin: '0 8px 0 0' }} />
-          )}
-          {/* Bubble column */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCurrentUser ? 'flex-end' : 'flex-start', flex: 1 }}>
-            {showGroupHeader && (
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: isCurrentUser ? 'right' : 'left', fontWeight: 500 }}>{message.sender}</div>
+      <div>
+        <div
+          id={isCurrentUser ? `menu-trigger-${message.id}` : undefined}
+          className={`message-group${showGroupHeader ? ' new-group' : ''}`}
+          style={{ marginTop: showGroupHeader ? 16 : 2 }}
+          {...longPressProps}
+        >
+          <div style={{ display: 'flex', flexDirection: isCurrentUser ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+            {/* Avatar for others, only on first in group */}
+            {showGroupHeader && !isCurrentUser ? (
+              <div style={{ width: 32, margin: '0 8px 0 0' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#bbb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15 }}>{initials}</div>
+              </div>
+            ) : (
+              <div style={{ width: 32, margin: '0 8px 0 0' }} />
             )}
-            <div className={`bubble${isCurrentUser ? ' current-user' : ''} bubble-tail`} style={{ marginBottom: 2, maxWidth: '80%' }}>
-              {editing ? (
-                <div style={{ marginTop: 2 }}>
-                  <Input.TextArea
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    autoSize={{ minRows: 1, maxRows: 4 }}
-                    style={{ marginBottom: 8 }}
-                  />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Button
-                      type="primary"
-                      size="small"
-                      onClick={async () => {
-                        await handleEditMessage(message.id, editValue);
-                        setEditing(false);
-                      }}
-                      disabled={editValue.trim() === '' || editValue === message.text}
-                    >
-                      Save
-                    </Button>
-                    <Button size="small" onClick={() => setEditing(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {message.imageUrl ? (
-                    <img
-                      src={message.imageUrl}
-                      alt="Shared content"
-                      style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
-                      onLoad={() => {
-                        if (idx === undefined) return;
-                        if (idx === -1) return;
-                        if (messageListRef.current) {
-                          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-                        }
-                      }}
-                    />
-                  ) : null}
-                  {message.text && (
-                    <span style={{ display: 'block' }}>{message.text}</span>
-                  )}
-                </>
+            {/* Bubble column */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: isCurrentUser ? 'flex-end' : 'flex-start', flex: 1 }}>
+              {showGroupHeader && (
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 2, textAlign: isCurrentUser ? 'right' : 'left', fontWeight: 500 }}>{message.sender}</div>
               )}
+              <div className={`bubble${isCurrentUser ? ' current-user' : ''} bubble-tail`} style={{ marginBottom: 2, maxWidth: '80%' }}>
+                {editing ? (
+                  <div style={{ marginTop: 2 }}>
+                    <Input.TextArea
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      autoSize={{ minRows: 1, maxRows: 4 }}
+                      style={{ marginBottom: 8 }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button
+                        type="primary"
+                        size="small"
+                        onClick={async () => {
+                          await handleEditMessage(message.id, editValue);
+                          setEditing(false);
+                        }}
+                        disabled={editValue.trim() === '' || editValue === message.text}
+                      >
+                        Save
+                      </Button>
+                      <Button size="small" onClick={() => setEditing(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {message.imageUrl ? (
+                      <img
+                        src={message.imageUrl}
+                        alt="Shared content"
+                        style={{ maxWidth: 220, maxHeight: 220, borderRadius: 12, display: 'block', marginBottom: message.text ? 6 : 0 }}
+                        onLoad={() => {
+                          if (idx === undefined) return;
+                          if (idx === -1) return;
+                          if (messageListRef.current) {
+                            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+                          }
+                        }}
+                      />
+                    ) : null}
+                    {message.text && (
+                      <span style={{ display: 'block' }}>{message.text}</span>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
